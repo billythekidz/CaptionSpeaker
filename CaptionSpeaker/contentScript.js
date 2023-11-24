@@ -338,7 +338,7 @@ function AddSpeechQueue(text, storageResult, videoElement){
 // 単純に秒単位で時間を確認して、前回読み上げた時間と変わっているのなら発話する、という事をします。
 function CheckAndSpeech(currentTimeText, storageResult, videoElement){
   if(!currentTimeText){ console.log("currentTimeText is nil"); return;}
-  if(currentTimeText == prevSpeakTime){ return;}
+  //if(currentTimeText == prevSpeakTime){ return;}
   if(storageResult.isDisableSpeechIfChaptionDisabled && !CheckCaptionIsDisplaying()){ return; }
   let caption = captionData[currentTimeText];
   if(caption){
