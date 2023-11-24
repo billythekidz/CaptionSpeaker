@@ -139,6 +139,7 @@ async function FetchCaptionData(isForceFetch = false){
     captionData = CaptionDataToTimeDict(json);
     CURRENT_VIDEO_ID = videoId;
     console.log("captionData updated", GetVideoId(), captionData);
+    AddAllToQueue();
     // 最初の一回目のCaptionDataの読み込み時には、読み込みが終わるまでの時間分を考慮させます
     if(ContentScriptLoadTime){
       const now = new Date();
@@ -193,6 +194,7 @@ function CaptionDataToTimeDict(captionData){
   let events = captionData?.events;
   if(!events){ console.log("CaptionDataToTimeDict(): error. events not found"); return; }
   let captionArray = events.map((obj)=>{
+    //console.log(obj)
     let tStartMs = obj?.tStartMs;
     // 表示上は分割して表示されるのですが、最低1文字づつで分割されており
     // そのまま読み上げるとぶつ切りで聞くに堪えない事になるため、
@@ -209,8 +211,10 @@ function CaptionDataToTimeDict(captionData){
     // 発話という意味では中身が空の物は意味がないのでここで消しておきます
     let segment = obj?.segment;
     if(segment?.length > 0 && segment.replace(/[\s\r\n]*/g, "").length > 0){
-      return true;
-    }
+    //if(segment?.length > 0 && segment.replace(/[\s\r]*/g, "").length > 0){
+        return true;
+      }
+
     return false;
   });
   var timeDict = {};
@@ -302,6 +306,7 @@ function volumeRecover(videoElement, originalVolume){
 }
 
 function AddSpeechQueue(text, storageResult, videoElement){
+  console.log(text)
   const utt = new SpeechSynthesisUtterance(text);
   const setting = StorageResultToVoiceSettings(storageResult);
   if(setting.voiceVoice){
@@ -338,15 +343,24 @@ function AddSpeechQueue(text, storageResult, videoElement){
 // 単純に秒単位で時間を確認して、前回読み上げた時間と変わっているのなら発話する、という事をします。
 function CheckAndSpeech(currentTimeText, storageResult, videoElement){
   if(!currentTimeText){ console.log("currentTimeText is nil"); return;}
-  //if(currentTimeText == prevSpeakTime){ return;}
+  //if(currentTimeText === prevSpeakTime){ return;}
   if(storageResult.isDisableSpeechIfChaptionDisabled && !CheckCaptionIsDisplaying()){ return; }
   let caption = captionData[currentTimeText];
-  if(caption){
-    prevSpeakTime = currentTimeText;
-    AddSpeechQueue(caption.segment, storageResult, videoElement);
-    return;
+  // for(let key in captionData){
+  //   if(currentTimeText <= key){
+  //     caption = captionData[key];
+  //   } else break
+  // }
+  //if(caption){
+  //var isSpeakDone = !speechSynthesis.speaking && speechSynthesis.
+  //if (isSpeakDone) {
+    if(caption) {
+      prevSpeakTime = currentTimeText;
+      AddSpeechQueue(caption.segment, storageResult, videoElement);
+      return;
+
   }
-  //console.log("no caption:", currentTimeText);
+  console.log("no caption:", currentTimeText);
 }
 
 function IsValidVideoDuration(duration, captionData){
@@ -375,7 +389,38 @@ async function IsTargetUrl(){
   const storageResult = await getStorageSync(["isDisableSpeechEmbeddedSite"]);
   return IsTargetUrlWithOption(url, storageResult);
 }
-
+async function AddAllToQueue() {
+  const storageResult = await getStorageSync(["isEnabled", "isDisableSpeechIfChaptionDisabled", "lang", "voice", "pitch", "rate", "volume", "isStopIfNewSpeech", "isDisableSpeechEmbeddedSite", "isOverrideOriginalVolumeEnabled", "overrideOriginalVolumeMagnification"]);
+  if(!IsTargetUrlWithOption(location.href, storageResult)){return;}
+  const isEnabled = storageResult?.isEnabled || typeof storageResult?.isEnabled == "undefined";
+  if(!isEnabled){return;}
+  let videoElement = document.evaluate("//video[contains(@class,'html5-main-video')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)?.snapshotItem(0);
+  if(!videoElement){
+    console.log("CheckVideoCurrentTime videoElement is not found:", videoElement);
+    return;
+  }
+  if(typeof(originalVolume) == "undefined"){
+    originalVolume = videoElement.volume;
+  }
+  let currentTime = videoElement.currentTime;
+  let duration = videoElement.duration;
+  if(isNaN(duration)){return;}
+  if(!IsValidVideoDuration(duration, captionData)){
+    console.log("CheckVideoCurrentTime is not valid VideoDuration. currentTime:", currentTime, "duration:", duration, "captionData:", captionData);
+    //UpdateCaptionData();
+    return;
+  }
+  var text = ""
+  for (let key in captionData) {
+    text = text + " " + captionData[key].segment
+    // console.log(captionData[key].segment)
+  }
+  text = text.replace(/(\s[A-Z])/g, x => {console.log(x); return "." + x.toUpperCase(); }).replace("..",".")
+  // var result = text.replace(/^([A-Z])$/, function (match, grp1, grp2, grp3, offset, s) {
+  //   return grp1.toUpperCase() + grp2 + " " + grp3.toUpperCase();
+  // });
+  AddSpeechQueue(text, storageResult, videoElement);
+}
 // 再生位置を video object の .currentTime から取得して、発話が必要そうなら発話させます
 async function CheckVideoCurrentTime(loadGapSecond = 0.0){
   //console.log("CaptionSpeaker checking location", location.href);
@@ -404,8 +449,8 @@ async function CheckVideoCurrentTime(loadGapSecond = 0.0){
     return;
   }
   for(let gap = loadGapSecond; gap >= 0; gap-=1){
-    let timeText = FormatTimeFromMillisecond((currentTime - gap) * 1000);
-    if(prevCheckVideoTimeText == timeText){return;}
+    let timeText = FormatTimeFromMillisecond((currentTime - gap) * 100);
+    if(prevCheckVideoTimeText === timeText){return;}
     prevCheckVideoTimeText = timeText;
     CheckAndSpeech(timeText, storageResult, videoElement);
   }
@@ -443,13 +488,13 @@ var ToplevelObserver = undefined;
 var VideoTimeCheckTimerID = undefined;
 
 function StartVideoTimeChecker(){
-  if(CURRENT_VIDEO_ID == GetVideoId()){
+  if(CURRENT_VIDEO_ID === GetVideoId()){
     CheckVideoCurrentTime().catch((e)=>{
       console.log("CheckVideoCurrentTime got error. video time checker stop:", e);
       StopVideoTimeChecker();
     });
   }
-  VideoTimeCheckTimerID = setTimeout(StartVideoTimeChecker, 250);
+  VideoTimeCheckTimerID = setTimeout(StartVideoTimeChecker, 100);
 }
 function StopVideoTimeChecker(){
   if(VideoTimeCheckTimerID){
@@ -464,9 +509,9 @@ async function CheckPlayLocaleUpdate(){
   let voiceName = storageResult.voice;
   let voiceList = speechSynthesis.getVoices();
   for(voice of voiceList){
-    if(voice.lang == lang && voice.name == voiceName){
+    if(voice.lang === lang && voice.name === voiceName){
       let l = lang?.replace(/-.*$/, '');
-      if(l?.length > 0 && playLocale != l){
+      if(l?.length > 0 && playLocale !== l){
         playLocale = l;
       }
       return;
@@ -495,7 +540,7 @@ async function KickToplevelObserver(){
         // UpdateCaptionData は /watch?v=... の ... が変わった時だけで良いはず
         ContentScriptLoadTime = new Date(); // ページが変わったぽいので load time を解消しておきます
         UpdateCaptionData();
-        StartVideoTimeChecker();
+        //StartVideoTimeChecker();
       }else{
         StopVideoTimeChecker();
       }
