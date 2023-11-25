@@ -138,7 +138,7 @@ async function FetchCaptionData(isForceFetch = false){
     }
     captionData = CaptionDataToTimeDict(json);
     CURRENT_VIDEO_ID = videoId;
-    console.log("captionData updated", GetVideoId(), captionData);
+    //console.log("captionData updated", GetVideoId(), captionData);
     AddAllToQueue();
     // 最初の一回目のCaptionDataの読み込み時には、読み込みが終わるまでの時間分を考慮させます
     if(ContentScriptLoadTime){
@@ -415,7 +415,8 @@ async function AddAllToQueue() {
     text = text + " " + captionData[key].segment
     // console.log(captionData[key].segment)
   }
-  text = text.replace(/(\s[A-Z])/g, x => {console.log(x); return "." + x.toUpperCase(); }).replace("..",".")
+  text = text.replace(/(\n)/g, x => {return " "; })
+  //text = text.replace(/(\s[A-Z])/g, x => {return "." + x.toUpperCase(); }).replaceAll("..",".").replaceAll(". .",".")
   // var result = text.replace(/^([A-Z])$/, function (match, grp1, grp2, grp3, offset, s) {
   //   return grp1.toUpperCase() + grp2 + " " + grp3.toUpperCase();
   // });
