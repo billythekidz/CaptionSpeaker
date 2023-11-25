@@ -625,8 +625,8 @@ const screenObserver = new MutationObserver(function (mutations) {
       if (paused) {
         return;
       }
-      paused = true;
-      speechSynthesis.pause();
+      //paused = true;
+      //speechSynthesis.pause();
       pauseTime = mutation.target.querySelector(".video-stream").currentTime;   
     }
     if (mutation.target.classList.contains("playing-mode")) {
