@@ -306,6 +306,7 @@ function volumeRecover(videoElement, originalVolume){
 }
 
 function AddSpeechQueue(text, storageResult, videoElement){
+  //if (speechSynthesis.speaking) return;
   console.log(text)
   const utt = new SpeechSynthesisUtterance(text);
   const setting = StorageResultToVoiceSettings(storageResult);
@@ -325,6 +326,7 @@ function AddSpeechQueue(text, storageResult, videoElement){
       volumeRecover(videoElement, targetVolume);
     };
   }
+  speechSynthesis.cancel();
   if(setting.isStopIfNewSpeech){
     //console.log("isStopIfNewSpeech is true");
     speechSynthesis.cancel();
@@ -595,7 +597,7 @@ function InitializeScreenObserver(){
   }
 
   // prevents from speaking a remaining part of a speech when opening a new YouTube tab
-  speechSynthesis.cancel();
+  //speechSynthesis.cancel();
   
   // configuration of the screen observer
   const config = { attributes: true, subtree: true, attributeFilter: ['class', 'src']};
@@ -603,46 +605,46 @@ function InitializeScreenObserver(){
   screenObserver.observe(screen, config);
 
   // prevents from speaking a remaining part of a speech when changing tabs
-window.addEventListener("blur", function(event) {
-  if (paused) speechSynthesis.cancel();
-});
+// window.addEventListener("blur", function(event) {
+//   //if (paused) speechSynthesis.cancel();
+// });
 }
 
-let paused = false;
-let pauseTime;
-
-// movie_player observer to react on pause
-const screenObserver = new MutationObserver(function (mutations) {
-  mutations.forEach(function (mutation) {
-
-    // cancels speechSynthesis if url was changed
-    if (mutation.attributeName === "src"){
-        speechSynthesis.cancel();
-        return;
-    }
-
-    if (mutation.target.classList.contains("paused-mode")) {
-      if (paused) {
-        return;
-      }
-      //paused = true;
-      //speechSynthesis.pause();
-      pauseTime = mutation.target.querySelector(".video-stream").currentTime;   
-    }
-    if (mutation.target.classList.contains("playing-mode")) {
-      if (!paused) {
-        return;
-      }
-      paused = false;
-      // resumes if the time before and after the pause differs by less than 1 sec, or if undefined (videoElement is not found)
-      if (Math.abs(mutation.target.querySelector(".video-stream").currentTime - pauseTime) > 1){
-        speechSynthesis.cancel();
-      }
-      else {
-        speechSynthesis.resume();
-      }
-    }
-  });
-});
+// let paused = false;
+// let pauseTime;
+//
+// // movie_player observer to react on pause
+// const screenObserver = new MutationObserver(function (mutations) {
+//   mutations.forEach(function (mutation) {
+//     //console.log(mutation)
+//     // cancels speechSynthesis if url was changed
+//     if (mutation.attributeName === "src"){
+//         //speechSynthesis.cancel();
+//         return;
+//     }
+//
+//     if (mutation.target.classList.contains("paused-mode")) {
+//       if (paused) {
+//         return;
+//       }
+//       //paused = true;
+//       //speechSynthesis.pause();
+//       //pauseTime = mutation.target.querySelector(".video-stream").currentTime;
+//     }
+//     if (mutation.target.classList.contains("playing-mode")) {
+//      // if (!paused) {
+//      //   return;
+//      // }
+//      //  paused = false;
+//      //  // resumes if the time before and after the pause differs by less than 1 sec, or if undefined (videoElement is not found)
+//      //  if (Math.abs(mutation.target.querySelector(".video-stream").currentTime - pauseTime) > 1){
+//      //    speechSynthesis.cancel();
+//      //  }
+//      //  else {
+//      //    speechSynthesis.resume();
+//      //  }
+//     }
+//   });
+// });
 
 InitializeScreenObserver();
